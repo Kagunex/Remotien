@@ -32,7 +32,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Install Dependencies
         run: npm install
@@ -57,3 +56,4 @@ jobs:
           path: out/metode-pemisahan-campuran.mp4
           if-no-files-found: error
           retention-days: 7
+          
