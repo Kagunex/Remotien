@@ -1,0 +1,97 @@
+name: Extract ZIP to Root
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_file:
+        description: "Nama file ZIP di repository"
+        required: true
+        default: "metode-pemisahan-campuran-remotion.zip"
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract ZIP to Root
+        env:
+          ZIP_FILE: ${{ inputs.zip_file }}
+        run: |
+          set -e
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ZIP tidak ditemukan!"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import zipfile
+          import os
+          from pathlib import Path
+
+          archive = Path(os.environ["ZIP_FILE"])
+          root = Path.cwd().resolve()
+
+          with zipfile.ZipFile(archive) as z:
+              files = [f for f in z.namelist() if not f.endswith("/")]
+
+              # Deteksi folder pembungkus tunggal
+              first_parts = {Path(f).parts[0] for f in files if Path(f).parts}
+
+              strip_folder = (
+                  len(first_parts) == 1
+                  and all(len(Path(f).parts) > 1 for f in files)
+              )
+
+              for name in files:
+                  parts = Path(name).parts
+
+                  if strip_folder:
+                      parts = parts[1:]
+
+                  if not parts:
+                      continue
+
+                  destination = (root / Path(*parts)).resolve()
+
+                  if root not in destination.parents:
+                      raise ValueError(f"Path tidak aman: {name}")
+
+                  destination.parent.mkdir(
+                      parents=True,
+                      exist_ok=True
+                  )
+
+                  with z.open(name) as source:
+                      destination.write_bytes(source.read())
+
+                  print("Extracted:", destination.relative_to(root))
+          PY
+
+      - name: Delete ZIP
+        env:
+          ZIP_FILE: ${{ inputs.zip_file }}
+        run: rm -f "$ZIP_FILE"
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan."
+          else
+            git commit -m "Extract ZIP files to repository root"
+            git push
+          fi
+          
