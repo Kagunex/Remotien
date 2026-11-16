@@ -1,0 +1,59 @@
+name: Render Remotion Video
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "tsconfig.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remotion-render-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render Video
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Install Remotion Browser
+        run: npx remotion browser ensure
+
+      - name: Render MP4
+        run: |
+          mkdir -p out
+
+          npx remotion render \
+            src/index.ts \
+            PraktikumVideo \
+            out/metode-pemisahan-campuran.mp4 \
+            --codec h264
+
+      - name: Upload Video Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: metode-pemisahan-campuran
+          path: out/metode-pemisahan-campuran.mp4
+          if-no-files-found: error
+          retention-days: 7
