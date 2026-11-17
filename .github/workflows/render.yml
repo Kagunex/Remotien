@@ -1,59 +1,44 @@
-name: Render Remotion Video
+name: Render THE LAST SIGNAL
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "src/**"
-      - "public/**"
-      - "package.json"
-      - "tsconfig.json"
 
 permissions:
   contents: read
 
 concurrency:
-  group: remotion-render-${{ github.ref }}
-  cancel-in-progress: true
+  group: render-the-last-signal-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   render:
-    name: Render Video
+    name: Render Part 01 (1080p / 60 FPS)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install project dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: Install Remotion Browser
+      - name: Install Remotion browser
         run: npx remotion browser ensure
 
-      - name: Render MP4
-        run: |
-          mkdir -p out
+      - name: Render Part01
+        run: npm run render -- --concurrency=2
 
-          npx remotion render \
-            src/index.ts \
-            PraktikumVideo \
-            out/metode-pemisahan-campuran.mp4 \
-            --codec h264
-
-      - name: Upload Video Artifact
+      - name: Upload rendered MP4
         uses: actions/upload-artifact@v4
         with:
-          name: metode-pemisahan-campuran
-          path: out/metode-pemisahan-campuran.mp4
+          name: THE-LAST-SIGNAL-PART-01-1080p60
+          path: out/part01.mp4
           if-no-files-found: error
           retention-days: 7
           
