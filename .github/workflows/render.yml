@@ -29,10 +29,28 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install FFmpeg and Chromium dependencies
+      - name: Install FFmpeg, Mesa/SwiftShader, and Chromium dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64
+          sudo apt-get install -y \
+            ffmpeg \
+            libgl1 \
+            libegl1 \
+            libgles2 \
+            mesa-vulkan-icd-swrast \
+            libnss3 \
+            libnspr4 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2t64
           pip install --upgrade pip edge-tts
 
       - name: Install Node dependencies
@@ -49,8 +67,8 @@ jobs:
       - name: Validate project assets, scenes, and timing
         run: npm run validate
 
-      - name: Render MP4 video with Remotion
-        run: npm run render
+      - name: Render MP4 video with Remotion (WebGL software/angle)
+        run: npx remotion render src/index.ts BioluminescenceEpisode01 output/bioluminescence-episode01.mp4 --codec=h264 --audio-codec=aac --audio-bitrate=320k --pixel-format=yuv420p --crf=16 --gl=angle --concurrency=2
 
       - name: Upload rendered MP4 artifact
         uses: actions/upload-artifact@v4
