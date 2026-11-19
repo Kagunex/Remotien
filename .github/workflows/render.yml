@@ -1,44 +1,62 @@
-name: Render THE LAST SIGNAL
+name: Render Bioluminescence Episode 01
 
 on:
   workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: render-the-last-signal-${{ github.ref }}
-  cancel-in-progress: false
+    inputs:
+      tts_provider:
+        description: "TTS Provider (edge-tts | elevenlabs | openai)"
+        required: false
+        default: "edge-tts"
+  push:
+    branches:
+      - main
 
 jobs:
-  render:
-    name: Render Part 01 (1080p / 60 FPS)
+  render-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
+          cache: "npm"
 
-      - name: Install project dependencies
-        run: npm install --no-audit --no-fund
+      - name: Setup Python for edge-tts
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Install Remotion browser
-        run: npx remotion browser ensure
+      - name: Install FFmpeg and Chromium dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2
+          pip install --upgrade pip edge-tts
 
-      - name: Render Part01
-        run: npm run render -- --concurrency=2
+      - name: Install Node dependencies
+        run: npm ci
 
-      - name: Upload rendered MP4
+      - name: Generate SFX and Indonesian TTS narration
+        env:
+          TTS_PROVIDER: ${{ inputs.tts_provider || 'edge-tts' }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: npm run prepare:audio
+
+      - name: Validate project assets, scenes, and timing
+        run: npm run validate
+
+      - name: Render MP4 video with Remotion
+        run: npm run render
+
+      - name: Upload rendered MP4 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: THE-LAST-SIGNAL-PART-01-1080p60
-          path: out/part01.mp4
-          if-no-files-found: error
+          name: bioluminescence-episode01-mp4
+          path: output/bioluminescence-episode01.mp4
           retention-days: 7
           
