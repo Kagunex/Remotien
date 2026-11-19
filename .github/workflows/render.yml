@@ -67,8 +67,8 @@ jobs:
       - name: Validate project assets, scenes, and timing
         run: npm run validate
 
-      - name: Render MP4 video with Remotion (WebGL software/angle)
-        run: npx remotion render src/index.ts BioluminescenceEpisode01 output/bioluminescence-episode01.mp4 --codec=h264 --audio-codec=aac --audio-bitrate=320k --pixel-format=yuv420p --crf=16 --gl=angle --concurrency=2
+      - name: Render MP4 video with Remotion
+        run: npx remotion render src/index.ts BioluminescenceEpisode01 output/bioluminescence-episode01.mp4 --codec=h264 --audio-codec=aac --audio-bitrate=320k --pixel-format=yuv420p --crf=16 --gl=swshader --concurrency=2
 
       - name: Upload rendered MP4 artifact
         uses: actions/upload-artifact@v4
