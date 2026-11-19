@@ -1,0 +1,49 @@
+{
+  "project": "BIOLUMINESCENCE \u2014 THE GLOWING OCEAN",
+  "rendering_mode": "3D_PROCEDURAL_SCIENTIFIC_RECONSTRUCTION",
+  "scientific_references": [
+    {
+      "id": "NOAA_2024",
+      "source_title": "NOAA Ocean Exploration \u2014 Bioluminescence Fact Sheet",
+      "original_url": "https://oceanexplorer.noaa.gov/facts/bioluminescence.html",
+      "author": "National Oceanic and Atmospheric Administration (NOAA)",
+      "license": "Public Domain (U.S. Government Work)",
+      "usage_permission": "Verified free for educational and documentary reference"
+    },
+    {
+      "id": "PERIN_2022",
+      "source_title": "Bioluminescent Dinoflagellates as a Bioassay for Toxicity Assessment",
+      "original_url": "https://doi.org/10.3390/ijms232113012",
+      "author": "Perin et al. (2022)",
+      "license": "CC BY 4.0",
+      "usage_permission": "Verified Open Access peer-reviewed literature"
+    },
+    {
+      "id": "FOGEL_HASTINGS_1972",
+      "source_title": "Bioluminescence: Mechanism and Mode of Control of Scintillon Activity",
+      "original_url": "https://doi.org/10.1073/pnas.69.3.690",
+      "author": "Fogel & Hastings (1972)",
+      "license": "PNAS Open Archive",
+      "usage_permission": "Verified historical biochemical reference"
+    },
+    {
+      "id": "SMITHSONIAN_OCEAN",
+      "source_title": "Smithsonian Ocean \u2014 Bioluminescence",
+      "original_url": "https://ocean.si.edu/ocean-life/fish/bioluminescence",
+      "author": "Smithsonian Institution",
+      "license": "Smithsonian Open Access / Educational Reference",
+      "usage_permission": "Verified for scientific accuracy cross-check"
+    }
+  ],
+  "media_assets": [
+    {
+      "filename": "procedural_3d_dinoflagellate_mesh",
+      "original_url": "internal://src/scenes/Scene03Dinoflagellates.tsx",
+      "author": "Creative Development Team",
+      "license": "Original Procedural 3D Asset",
+      "source_title": "3D Scientific Reconstruction of Armored Dinoflagellate (Theca, Cingulum, Sulcus)",
+      "attribution": "Rekonstruksi 3D Ilmiah berdasarkan literatur morfologi dinoflagellata",
+      "usage_permission": "Full internal production rights; fallback active for all raster/video footage"
+    }
+  ]
+}

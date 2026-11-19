@@ -1,0 +1,32 @@
+{
+  "name": "bioluminescence-episode01",
+  "version": "1.0.0",
+  "description": "3D Science Motion Graphic: Bioluminescence \u2014 The Glowing Ocean",
+  "scripts": {
+    "prepare:audio": "tsx scripts/generate-sfx.ts && tsx scripts/generate-voice.ts",
+    "validate": "tsx scripts/validate.ts",
+    "preview": "npm run validate && remotion studio src/index.ts",
+    "render": "npm run validate && remotion render src/index.ts BioluminescenceEpisode01 output/bioluminescence-episode01.mp4 --codec=h264 --audio-codec=aac --audio-bitrate=320k --pixel-format=yuv420p --crf=16"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.220",
+    "@remotion/media-utils": "^4.0.220",
+    "@remotion/three": "^4.0.220",
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
+    "@react-three/postprocessing": "^2.16.3",
+    "dotenv": "^16.4.5",
+    "postprocessing": "^6.36.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.220",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.11",
+    "@types/three": "^0.169.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
