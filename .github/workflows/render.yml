@@ -23,7 +23,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
       - name: Setup Python for edge-tts
         uses: actions/setup-python@v5
@@ -37,7 +36,7 @@ jobs:
           pip install --upgrade pip edge-tts
 
       - name: Install Node dependencies
-        run: npm ci
+        run: npm install
 
       - name: Generate SFX and Indonesian TTS narration
         env:
