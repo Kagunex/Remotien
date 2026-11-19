@@ -99,7 +99,7 @@ jobs:
             --audio-bitrate=320k \
             --pixel-format=yuv420p \
             --crf=16 \
-            --gl=swshader \
+            --gl=swiftshader \
             --concurrency=2
 
       - name: Verify rendered MP4
