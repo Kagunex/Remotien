@@ -1,122 +1,77 @@
-name: Render Bioluminescence Episode 01
+name: Render Bagaimana Internet Bekerja (3D Remotion + ElevenLabs)
 
 on:
   workflow_dispatch:
     inputs:
-      tts_provider:
-        description: "TTS Provider"
+      voice_id:
+        description: 'ElevenLabs Voice ID (opsional, default dari secret/script)'
         required: false
-        default: "edge-tts"
-        type: choice
-        options:
-          - edge-tts
-          - elevenlabs
-          - openai
-
+        default: '21m00Tcm4TlvDq8ikWAM'
+      crf:
+        description: 'Kualitas H.264 CRF (18 = tinggi, 23 = standar)'
+        required: false
+        default: '18'
   push:
     branches:
       - main
-
-permissions:
-  contents: read
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - '.github/workflows/**'
 
 jobs:
   render-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install FFmpeg and Chromium dependencies
+      - name: Install Linux Chromium & WebGL dependencies for Remotion Three.js
         run: |
           sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libasound2 libpangocairo-1.0-0 libpango-1.0-0 \
+            libgl1-mesa-dri libgl1-mesa-glx xvfb
 
-          sudo apt-get install -y --no-install-recommends \
-            ffmpeg \
-            libgl1 \
-            libegl1 \
-            libgles2 \
-            libnss3 \
-            libnspr4 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libdrm2 \
-            libxkbcommon0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libxrandr2 \
-            libgbm1 \
-            libasound2t64
+      - name: Install project dependencies
+        run: npm ci || npm install
 
-          python -m pip install --upgrade pip
-          python -m pip install edge-tts
+      - name: Typecheck TypeScript
+        run: npm run typecheck
 
-      - name: Install Node dependencies
-        run: npm install
-
-      - name: Verify environment
-        run: |
-          node --version
-          npm --version
-          python --version
-          ffmpeg -version
-
-      - name: Generate SFX and Indonesian TTS narration
+      - name: Generate Indonesian Voiceover via ElevenLabs API
         env:
-          TTS_PROVIDER: ${{ inputs.tts_provider || 'edge-tts' }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: npm run prepare:audio
+          ELEVENLABS_VOICE_ID: ${{ github.event.inputs.voice_id || secrets.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM' }}
+          ELEVENLABS_MODEL_ID: 'eleven_multilingual_v2'
+        run: node scripts/generate-elevenlabs-vo.mjs
 
-      - name: Validate project assets, scenes, and timing
-        run: npm run validate
-
-      - name: Render MP4 video with Remotion
+      - name: Render 90s 3D Motion Graphic Video (1920x1080 @ 30fps)
         run: |
-          mkdir -p output
-
-          npx remotion render \
-            src/index.ts \
-            BioluminescenceEpisode01 \
-            output/bioluminescence-episode01.mp4 \
+          mkdir -p out
+          npx remotion render src/index.ts InternetExplained out/bagaimana-internet-bekerja.mp4 \
             --codec=h264 \
-            --audio-codec=aac \
-            --audio-bitrate=320k \
             --pixel-format=yuv420p \
-            --crf=16 \
-            --gl=swangle \
-            --concurrency=1
+            --crf=${{ github.event.inputs.crf || '18' }} \
+            --gl=angle
 
-      - name: Verify rendered MP4
-        run: |
-          test -s output/bioluminescence-episode01.mp4
-
-          ffprobe -v error \
-            -show_entries format=duration,size \
-            -show_entries stream=codec_name,width,height,r_frame_rate \
-            -of json \
-            output/bioluminescence-episode01.mp4
-
-      - name: Upload rendered MP4 artifact
+      - name: Upload Rendered MP4 & Generated Voiceovers Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bioluminescence-episode01-mp4
-          path: output/bioluminescence-episode01.mp4
-          if-no-files-found: error
-          retention-days: 7
+          name: bagaimana-internet-bekerja-1080p
+          path: |
+            out/bagaimana-internet-bekerja.mp4
+            public/audio/voiceover/*.wav
+          retention-days: 30
           
