@@ -29,7 +29,7 @@ export const Scene07_Reassembly: React.FC = () => {
   return (
     <AbsoluteFill>
       <SceneCanvas cameraFov={42}>
-        <StudioLighting floorY=-3.2 theme="reassembly" />
+        <StudioLighting floorY={-3.2} theme="reassembly" />
         <CameraRig position={[0, 0.15, camZ]} lookAt={[0, -0.05, 0]} />
 
         <FloatingObject position={[0, -0.08, 0]} amplitude={0.07}>
