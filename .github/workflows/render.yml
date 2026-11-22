@@ -44,11 +44,12 @@ jobs:
         with:
           node-version: '20'
 
-      # 3. Install Linux dependencies
-      - name: Install Linux Chromium & WebGL dependencies
+      # 3. Install Linux dependencies + FFmpeg
+      - name: Install Linux Chromium, WebGL & FFmpeg dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            ffmpeg \
             libnss3 \
             libatk1.0-0 \
             libatk-bridge2.0-0 \
@@ -67,7 +68,12 @@ jobs:
             libgl1-mesa-dri \
             xvfb
 
-      # 4. Install project dependencies
+      # 4. Verify FFmpeg
+      - name: Verify FFmpeg
+        run: |
+          ffmpeg -version
+
+      # 5. Install project dependencies
       - name: Install project dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -76,7 +82,7 @@ jobs:
             npm install
           fi
 
-      # 5. Verify Remotion installation
+      # 6. Verify Node.js and Remotion
       - name: Verify Node.js and Remotion dependencies
         run: |
           echo "Checking Node.js..."
@@ -88,11 +94,11 @@ jobs:
           echo "Checking Remotion packages..."
           npm ls remotion @remotion/cli --depth=0
 
-      # 6. TypeScript check
+      # 7. TypeScript check
       - name: Typecheck TypeScript
         run: npm run typecheck
 
-      # 7. Validate ElevenLabs configuration
+      # 8. Validate ElevenLabs configuration
       - name: Validate ElevenLabs API configuration
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
@@ -102,7 +108,7 @@ jobs:
             exit 1
           fi
 
-      # 8. Generate Indonesian voiceover
+      # 9. Generate Indonesian voiceover
       - name: Generate Indonesian Voiceover via ElevenLabs
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
@@ -111,18 +117,26 @@ jobs:
         run: |
           node scripts/generate-elevenlabs-vo.mjs
 
-      # 9. Verify voiceover files
+      # 10. Verify voiceover files
       - name: Verify generated voiceovers
         run: |
-          if ! compgen -G "public/audio/voiceover/*.wav" > /dev/null; then
-            echo "::error::Tidak ditemukan file voiceover WAV."
+          set -e
+
+          EXPECTED=8
+          ACTUAL=$(find public/audio/voiceover -maxdepth 1 -type f -name 'scene-*.wav' | wc -l)
+
+          echo "Expected voiceovers: $EXPECTED"
+          echo "Generated voiceovers: $ACTUAL"
+
+          if [ "$ACTUAL" -ne "$EXPECTED" ]; then
+            echo "::error::Jumlah file voiceover tidak sesuai. Ditemukan $ACTUAL dari $EXPECTED."
             exit 1
           fi
 
           echo "Generated voiceover files:"
           ls -lh public/audio/voiceover/
 
-      # 10. Render video
+      # 11. Render video
       - name: Render 90s 3D Motion Graphic Video
         env:
           CRF: ${{ inputs.crf || '18' }}
@@ -138,18 +152,27 @@ jobs:
             --crf="$CRF" \
             --gl=angle
 
-      # 11. Verify output
+      # 12. Verify output
       - name: Verify rendered video
         run: |
-          if [ ! -s out/bagaimana-internet-bekerja.mp4 ]; then
+          set -e
+
+          OUTPUT="out/bagaimana-internet-bekerja.mp4"
+
+          if [ ! -s "$OUTPUT" ]; then
             echo "::error::File video tidak ditemukan atau kosong."
             exit 1
           fi
 
           echo "Video successfully rendered:"
-          ls -lh out/bagaimana-internet-bekerja.mp4
+          ls -lh "$OUTPUT"
 
-      # 12. Upload artifact
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -of default=noprint_wrappers=1 \
+            "$OUTPUT"
+
+      # 13. Upload artifact
       - name: Upload Rendered MP4 & Voiceovers
         uses: actions/upload-artifact@v4
         with:
