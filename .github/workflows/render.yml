@@ -4,20 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       voice_id:
-        description: 'ElevenLabs Voice ID (opsional, default dari secret/script)'
+        description: 'ElevenLabs Voice ID'
         required: false
         default: '21m00Tcm4TlvDq8ikWAM'
       crf:
         description: 'Kualitas H.264 CRF (18 = tinggi, 23 = standar)'
         required: false
         default: '18'
+
   push:
     branches:
       - main
     paths:
       - 'src/**'
       - 'public/**'
+      - 'scripts/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/**'
 
 jobs:
@@ -33,40 +36,59 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install Linux Chromium & WebGL dependencies for Remotion Three.js
+      - name: Install Linux Chromium & WebGL dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
-            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
-            libgbm1 libasound2 libpangocairo-1.0-0 libpango-1.0-0 \
-            libgl1-mesa-dri libgl1-mesa-glx xvfb
+            libnss3 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2 \
+            libpangocairo-1.0-0 \
+            libpango-1.0-0 \
+            libgl1-mesa-dri \
+            libgl1-mesa-glx \
+            xvfb
 
       - name: Install project dependencies
-        run: npm ci || npm install
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
 
       - name: Typecheck TypeScript
         run: npm run typecheck
 
-      - name: Generate Indonesian Voiceover via ElevenLabs API
+      - name: Generate Indonesian Voiceover via ElevenLabs
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ github.event.inputs.voice_id || secrets.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM' }}
-          ELEVENLABS_MODEL_ID: 'eleven_multilingual_v2'
+          ELEVENLABS_MODEL_ID: eleven_multilingual_v2
         run: node scripts/generate-elevenlabs-vo.mjs
 
-      - name: Render 90s 3D Motion Graphic Video (1920x1080 @ 30fps)
+      - name: Render 90s 3D Motion Graphic Video
+        env:
+          CRF: ${{ github.event.inputs.crf || '18' }}
         run: |
           mkdir -p out
           npx remotion render src/index.ts InternetExplained out/bagaimana-internet-bekerja.mp4 \
             --codec=h264 \
             --pixel-format=yuv420p \
-            --crf=${{ github.event.inputs.crf || '18' }} \
+            --crf="$CRF" \
             --gl=angle
 
-      - name: Upload Rendered MP4 & Generated Voiceovers Artifact
+      - name: Upload Rendered MP4 & Voiceovers
         uses: actions/upload-artifact@v4
         with:
           name: bagaimana-internet-bekerja-1080p
