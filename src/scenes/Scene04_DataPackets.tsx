@@ -33,7 +33,7 @@ export const Scene04_DataPackets: React.FC = () => {
   return (
     <AbsoluteFill>
       <SceneCanvas cameraFov={42}>
-        <StudioLighting floorY=-3.6 theme="packets" />
+        <StudioLighting floorY={-3.6} theme="packets" />
         <CameraRig position={[0, camY, camZ]} lookAt={[0, camY * 0.7, 0]} />
 
         {/* Motherboard / PCB di bagian atas sebagai sumber data */}
