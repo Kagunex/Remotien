@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const API_KEY = process.env.ELEVENLABS_API_KEY;
-// Default: Rachel / Multilingual v2 (bisa diganti ke Voice ID Bahasa Indonesia pilihan via env ELEVENLABS_VOICE_ID)
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
 const MODEL_ID = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2';
 
@@ -43,14 +43,19 @@ const SCENES_NARRATION = [
 
 async function generateVoiceovers() {
   if (!API_KEY) {
-    console.warn('⚠️ ELEVENLABS_API_KEY tidak ditemukan. Menggunakan file WAV placeholder bawaan.');
-    return;
+    throw new Error('ELEVENLABS_API_KEY tidak ditemukan di GitHub Secrets.');
   }
 
-  console.log(`🎙️ Generating 8 scene voiceovers via ElevenLabs (Model: ${MODEL_ID}, Voice: ${VOICE_ID})...`);
+  console.log(`🎙️ Generating ${SCENES_NARRATION.length} voiceovers...`);
+  console.log(`Model: ${MODEL_ID} | Voice: ${VOICE_ID}`);
 
   for (const scene of SCENES_NARRATION) {
-    const url = `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=pcm_44100`;
+    console.log(`\n⏳ Generating ${scene.file}...`);
+
+    const url =
+      `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}` +
+      '?output_format=mp3_44100_128';
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -70,43 +75,43 @@ async function generateVoiceovers() {
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ElevenLabs API error (${response.status}) on ${scene.file}: ${errText}`);
+      const error = await response.text();
+      throw new Error(
+        `ElevenLabs API error (${response.status}) on ${scene.file}: ${error}`
+      );
     }
 
-    const pcmBuffer = Buffer.from(await response.arrayBuffer());
-    const wavBuffer = wrapPcmAsWav(pcmBuffer, 44100, 1, 16);
+    const mp3Buffer = Buffer.from(await response.arrayBuffer());
+    const outputPath = path.resolve(scene.file);
+    const tempMp3 = `${outputPath}.mp3`;
 
-    fs.mkdirSync(path.dirname(scene.file), { recursive: true });
-    fs.writeFileSync(scene.file, wavBuffer);
-    console.log(`✅ Saved ${scene.file} (${(wavBuffer.length / 1024).toFixed(1)} KB)`);
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(tempMp3, mp3Buffer);
+
+    try {
+      execFileSync('ffmpeg', [
+        '-y',
+        '-i', tempMp3,
+        '-ar', '44100',
+        '-ac', '1',
+        '-c:a', 'pcm_s16le',
+        outputPath,
+      ], { stdio: 'inherit' });
+
+      fs.unlinkSync(tempMp3);
+    } catch (error) {
+      throw new Error(`Gagal mengonversi audio ${scene.file}: ${error.message}`);
+    }
+
+    const stats = fs.statSync(outputPath);
+    console.log(`✅ Saved ${scene.file} (${(stats.size / 1024).toFixed(1)} KB)`);
   }
+
+  console.log('\n🎉 Semua 8 voiceover berhasil dibuat!');
 }
 
-function wrapPcmAsWav(pcmData, sampleRate, numChannels, bitsPerSample) {
-  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
-  const blockAlign = (numChannels * bitsPerSample) / 8;
-  const dataSize = pcmData.length;
-  const header = Buffer.alloc(44);
-
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + dataSize, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20); // PCM
-  header.writeUInt16LE(numChannels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(byteRate, 28);
-  header.writeUInt16LE(blockAlign, 32);
-  header.writeUInt16LE(bitsPerSample, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(dataSize, 40);
-
-  return Buffer.concat([header, pcmData]);
-}
-
-generateVoiceovers().catch((err) => {
-  console.error(err);
+generateVoiceovers().catch((error) => {
+  console.error('\n❌ Voiceover generation failed:', error.message);
   process.exit(1);
 });
+  
