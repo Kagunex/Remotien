@@ -43,7 +43,8 @@ concurrency:
 jobs:
   render:
     if: ${{ inputs.run_preflight == true || inputs.confirm_full_render == true || inputs.generate_voiceover == true }}
-    runs-on: ubuntu-latest
+
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     steps:
@@ -51,7 +52,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -60,7 +61,10 @@ jobs:
       # 3. Install system dependencies
       - name: Install system dependencies
         run: |
+          set -euo pipefail
+
           sudo apt-get update
+
           sudo apt-get install -y \
             ffmpeg \
             libnss3 \
@@ -84,28 +88,31 @@ jobs:
       # 4. Verify environment
       - name: Verify environment
         run: |
+          set -euo pipefail
+
           node --version
           npm --version
           ffmpeg -version
           ffprobe -version
 
-      # 5. Install dependencies
+      # 5. Install project dependencies
       - name: Install project dependencies
         run: |
-          set -e
+          set -euo pipefail
 
           if [ -f package-lock.json ]; then
             echo "Installing from package-lock.json"
             npm ci --no-audit --no-fund
           else
-            echo "No package-lock.json found"
+            echo "::warning::package-lock.json tidak ditemukan."
+            echo "Installing dependencies without generating a lockfile."
             npm install --no-audit --no-fund --package-lock=false
           fi
 
-      # 6. Verify project structure
-      - name: Validate project structure and assets
+      # 6. Validate project structure
+      - name: Validate project structure
         run: |
-          set -e
+          set -euo pipefail
 
           REQUIRED_FILES=(
             "package.json"
@@ -117,74 +124,48 @@ jobs:
               echo "::error::Required file not found: $FILE"
               exit 1
             fi
+
             echo "PASS: $FILE"
           done
 
           if [ ! -d "public" ]; then
-            echo "::error::Public directory not found"
+            echo "::error::Public directory not found."
             exit 1
           fi
 
-          echo "Project structure validation passed."
+          echo "PASS: public directory"
+          echo "Project structure validation successful."
 
       # 7. Verify Remotion
       - name: Verify Remotion dependencies
         run: |
-          set -e
+          set -euo pipefail
+
+          echo "Checking installed Remotion packages..."
+
           npm ls remotion @remotion/cli --depth=0
-          npx remotion --version
+
+          echo "Checking Remotion CLI versions..."
+
+          npx --no-install remotion versions
+
+          echo "Remotion verification successful."
 
       # 8. TypeScript check
       - name: TypeScript check
         run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
+          set -euo pipefail
 
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const scripts = pkg.scripts || {};
-
-          if (scripts.typecheck) {
-            console.log('Running project typecheck script...');
-            process.exit(0);
-          }
-
-          console.log('No typecheck script found. Checking TypeScript compiler...');
-
-          if (pkg.devDependencies?.typescript || pkg.dependencies?.typescript) {
-            console.log('TypeScript is installed, using npx tsc --noEmit.');
-            process.exit(2);
-          }
-
-          console.log('TypeScript compiler not configured. Skipping.');
-          NODE
-        continue-on-error: true
-
-      - name: Run TypeScript compiler when available
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const scripts = pkg.scripts || {};
-
-          if (scripts.typecheck) {
-            console.log('Project typecheck script exists.');
-          } else if (
-            pkg.devDependencies?.typescript ||
-            pkg.dependencies?.typescript
-          ) {
-            console.log('Using TypeScript compiler.');
-          } else {
-            console.log('No TypeScript check configured.');
-          }
-          NODE
-
-          if node -e "const p=require('./package.json');process.exit(p.scripts?.typecheck ? 0 : 1)"; then
+          if node -e "process.exit(require('./package.json').scripts?.typecheck ? 0 : 1)"; then
+            echo "Running project typecheck script..."
             npm run typecheck
-          elif node -e "const p=require('./package.json');process.exit(p.devDependencies?.typescript || p.dependencies?.typescript ? 0 : 1)"; then
-            npx tsc --noEmit
+
+          elif [ -x "node_modules/.bin/tsc" ] && [ -f "tsconfig.json" ]; then
+            echo "Running TypeScript compiler..."
+            ./node_modules/.bin/tsc --noEmit
+
           else
-            echo "TypeScript check skipped: no compiler configured."
+            echo "::warning::No usable TypeScript check configured. Skipping."
           fi
 
       # 9. Validate ElevenLabs API key
@@ -193,35 +174,45 @@ jobs:
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
+          set -euo pipefail
+
           if [ -z "$ELEVENLABS_API_KEY" ]; then
             echo "::error::ELEVENLABS_API_KEY belum diatur di GitHub Secrets."
             exit 1
           fi
 
+          echo "ElevenLabs API key detected."
+
       # 10. Verify voiceover generator
       - name: Verify voiceover generator
         if: ${{ inputs.generate_voiceover == true }}
         run: |
+          set -euo pipefail
+
           if [ ! -f "scripts/generate-elevenlabs-vo.mjs" ]; then
-            echo "::error::scripts/generate-elevenlabs-vo.mjs tidak ditemukan."
+            echo "::error::Voiceover generator tidak ditemukan."
             exit 1
           fi
 
-      # 11. Generate voiceovers
-      - name: Generate Indonesian Voiceover via ElevenLabs
+          echo "Voiceover generator found."
+
+      # 11. Generate ElevenLabs voiceovers
+      - name: Generate Indonesian Voiceover
         if: ${{ inputs.generate_voiceover == true }}
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ inputs.voice_id || secrets.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM' }}
           ELEVENLABS_MODEL_ID: eleven_multilingual_v2
         run: |
+          set -euo pipefail
+
           node scripts/generate-elevenlabs-vo.mjs
 
       # 12. Verify voiceover files
       - name: Verify voiceover files
         if: ${{ inputs.generate_voiceover == true || inputs.confirm_full_render == true }}
         run: |
-          set -e
+          set -euo pipefail
 
           DIRECTORY="public/audio/voiceover"
 
@@ -248,6 +239,7 @@ jobs:
             exit 1
           fi
 
+          echo "All 8 voiceovers verified."
           ls -lh "$DIRECTORY"
 
       # 13. Validate CRF
@@ -256,19 +248,24 @@ jobs:
         env:
           CRF: ${{ inputs.crf }}
         run: |
-          if ! [[ "$CRF" =~ ^[0-9]+$ ]] || [ "$CRF" -lt 0 ] || [ "$CRF" -gt 51 ]; then
-            echo "::error::CRF must be between 0 and 51."
+          set -euo pipefail
+
+          if ! [[ "$CRF" =~ ^[0-9]+$ ]] || [ "$CRF" -gt 51 ]; then
+            echo "::error::CRF must be an integer between 0 and 51."
             exit 1
           fi
+
+          echo "CRF validated: $CRF"
 
       # 14. WebGL preflight
       - name: WebGL preflight - 1 frame only
         if: ${{ inputs.run_preflight == true || inputs.confirm_full_render == true }}
         run: |
-          set -e
+          set -euo pipefail
+
           mkdir -p out
 
-          npx remotion still \
+          npx --no-install remotion still \
             src/index.ts \
             InternetExplained \
             out/preflight-frame.jpeg \
@@ -276,7 +273,7 @@ jobs:
             --gl=swangle \
             --concurrency=1
 
-          if [ ! -s out/preflight-frame.jpeg ]; then
+          if [ ! -s "out/preflight-frame.jpeg" ]; then
             echo "::error::Preflight image was not generated."
             exit 1
           fi
@@ -289,10 +286,11 @@ jobs:
         env:
           CRF: ${{ inputs.crf }}
         run: |
-          set -e
+          set -euo pipefail
+
           mkdir -p out
 
-          npx remotion render \
+          npx --no-install remotion render \
             src/index.ts \
             InternetExplained \
             out/bagaimana-internet-bekerja-9x16.mp4 \
@@ -302,18 +300,18 @@ jobs:
             --pixel-format=yuv420p \
             --crf="$CRF"
 
-      # 16. Verify video
+          if [ ! -s "out/bagaimana-internet-bekerja-9x16.mp4" ]; then
+            echo "::error::Render output is missing or empty."
+            exit 1
+          fi
+
+      # 16. Verify video metadata
       - name: Verify video metadata
         if: ${{ inputs.confirm_full_render == true }}
         run: |
-          set -e
+          set -euo pipefail
 
           OUTPUT="out/bagaimana-internet-bekerja-9x16.mp4"
-
-          if [ ! -s "$OUTPUT" ]; then
-            echo "::error::Rendered video not found or empty."
-            exit 1
-          fi
 
           ffprobe -v error \
             -select_streams v:0 \
@@ -342,23 +340,29 @@ jobs:
               duration >= 89.5 &&
               duration <= 90.5,
               'Duration approximately 90 seconds'
-            ],
+            ]
           ];
 
           let failed = false;
 
           for (const [passed, label] of checks) {
             console.log(`${passed ? 'PASS' : 'FAIL'}: ${label}`);
-            if (!passed) failed = true;
+
+            if (!passed) {
+              failed = true;
+            }
           }
 
-          if (failed) process.exit(1);
+          if (failed) {
+            process.exit(1);
+          }
+
+          console.log('Video metadata verification successful.');
           NODE
 
-          echo "Video verification successful."
           ls -lh "$OUTPUT"
 
-      # 17. Upload video and voiceovers
+      # 17. Upload rendered video
       - name: Upload rendered video and voiceovers
         if: ${{ inputs.confirm_full_render == true }}
         uses: actions/upload-artifact@v4
