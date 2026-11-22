@@ -81,7 +81,7 @@ jobs:
         run: |
           node --version
           npm --version
-          npx remotion --version
+          npx remotion version
 
       # 6. TypeScript check
       - name: Typecheck TypeScript
