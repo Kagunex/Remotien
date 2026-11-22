@@ -26,7 +26,7 @@ export const Scene08_Outro: React.FC = () => {
   return (
     <AbsoluteFill>
       <SceneCanvas cameraFov={42}>
-        <StudioLighting floorY=-3.6 theme="outro" />
+        <StudioLighting floorY={-3.6} theme="outro" />
         <CameraRig position={[0, camY, camZ]} lookAt={[0, -0.05, 0]} />
 
         <group scale={groupAppear}>
