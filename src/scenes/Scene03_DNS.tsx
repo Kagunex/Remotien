@@ -33,8 +33,12 @@ export const Scene03_DNS: React.FC = () => {
   return (
     <AbsoluteFill>
       <SceneCanvas cameraFov={42}>
-        <StudioLighting floorY=-3.5 theme="dns" />
-        <CameraRig position={[0.15, camY, camZ]} lookAt={[0, camY * 0.6, 0]} />
+        <StudioLighting floorY={-3.5} theme="dns" />
+
+        <CameraRig
+          position={[0.15, camY, camZ]}
+          lookAt={[0, camY * 0.6, 0]}
+        />
 
         {/* Kartu Domain di Atas */}
         <DNSCard
@@ -45,7 +49,11 @@ export const Scene03_DNS: React.FC = () => {
         />
 
         {/* Buku Kontak DNS di Tengah */}
-        <FloatingObject position={[0, 0.15, 0]} scale={bookScale} amplitude={0.05}>
+        <FloatingObject
+          position={[0, 0.15, 0]}
+          scale={bookScale}
+          amplitude={0.05}
+        >
           <DNSCard variant="book" />
         </FloatingObject>
 
@@ -58,7 +66,12 @@ export const Scene03_DNS: React.FC = () => {
         />
 
         {/* Server Tujuan di Bawah Kanan */}
-        <ServerRack position={[1.15, -1.65, -0.15]} rotation={[0, -0.32, 0]} scale={0.62} activeLeds={2} />
+        <ServerRack
+          position={[1.15, -1.65, -0.15]}
+          rotation={[0, -0.32, 0]}
+          scale={0.62}
+          activeLeds={2}
+        />
 
         <NetworkLine
           start={[0.15, -1.35, 0.55]}
@@ -119,3 +132,4 @@ export const Scene03_DNS: React.FC = () => {
     </AbsoluteFill>
   );
 };
+          
