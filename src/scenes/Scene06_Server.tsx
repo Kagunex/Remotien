@@ -29,7 +29,7 @@ export const Scene06_Server: React.FC = () => {
   return (
     <AbsoluteFill>
       <SceneCanvas cameraFov={42}>
-        <StudioLighting floorY=-3.1 theme="server" />
+        <StudioLighting floorY={-3.1} theme="server" />
         <CameraRig
           position={[Math.sin(camRotX) * 8.2, 0.65, Math.cos(camRotX) * 8.2]}
           lookAt={[0, -0.1, 0]}
