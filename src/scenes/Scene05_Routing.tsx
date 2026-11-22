@@ -29,7 +29,7 @@ export const Scene05_Routing: React.FC = () => {
   return (
     <AbsoluteFill>
       <SceneCanvas cameraFov={42}>
-        <StudioLighting floorY=-3.3 theme="routing" />
+        <StudioLighting floorY={-3.3} theme="routing" />
         <CameraRig position={[0, camY, 8.6]} lookAt={[0, camY * 0.5, 0]} />
 
         {/* Router 3D Utama di Tengah */}
