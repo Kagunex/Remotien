@@ -7,10 +7,12 @@ on:
         description: 'ElevenLabs Voice ID'
         required: false
         default: '21m00Tcm4TlvDq8ikWAM'
+        type: string
       crf:
         description: 'Kualitas H.264 CRF (18 = tinggi, 23 = standar)'
         required: false
         default: '18'
+        type: string
 
   push:
     branches:
@@ -23,20 +25,26 @@ on:
       - 'package-lock.json'
       - '.github/workflows/**'
 
+permissions:
+  contents: read
+
 jobs:
   render-video:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Setup Node.js
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      # 3. Install Linux dependencies
       - name: Install Linux Chromium & WebGL dependencies
         run: |
           sudo apt-get update
@@ -52,13 +60,14 @@ jobs:
             libxfixes3 \
             libxrandr2 \
             libgbm1 \
-            libasound2 \
+            libasound2t64 \
             libpangocairo-1.0-0 \
             libpango-1.0-0 \
+            libgl1 \
             libgl1-mesa-dri \
-            libgl1-mesa-glx \
             xvfb
 
+      # 4. Install project dependencies
       - name: Install project dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -67,27 +76,63 @@ jobs:
             npm install
           fi
 
+      # 5. Verify Remotion installation
+      - name: Verify Remotion
+        run: |
+          node --version
+          npm --version
+          npx remotion --version
+
+      # 6. TypeScript check
       - name: Typecheck TypeScript
         run: npm run typecheck
 
+      # 7. Validate ElevenLabs configuration
+      - name: Validate ElevenLabs API configuration
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          if [ -z "$ELEVENLABS_API_KEY" ]; then
+            echo "::error::ELEVENLABS_API_KEY belum diatur di GitHub Secrets."
+            exit 1
+          fi
+
+      # 8. Generate Indonesian voiceover
       - name: Generate Indonesian Voiceover via ElevenLabs
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-          ELEVENLABS_VOICE_ID: ${{ github.event.inputs.voice_id || secrets.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM' }}
+          ELEVENLABS_VOICE_ID: ${{ inputs.voice_id || secrets.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM' }}
           ELEVENLABS_MODEL_ID: eleven_multilingual_v2
-        run: node scripts/generate-elevenlabs-vo.mjs
+        run: |
+          node scripts/generate-elevenlabs-vo.mjs
 
+      # 9. Render video
       - name: Render 90s 3D Motion Graphic Video
         env:
-          CRF: ${{ github.event.inputs.crf || '18' }}
+          CRF: ${{ inputs.crf || '18' }}
         run: |
           mkdir -p out
-          npx remotion render src/index.ts InternetExplained out/bagaimana-internet-bekerja.mp4 \
+
+          npx remotion render \
+            src/index.ts \
+            InternetExplained \
+            out/bagaimana-internet-bekerja.mp4 \
             --codec=h264 \
             --pixel-format=yuv420p \
             --crf="$CRF" \
             --gl=angle
 
+      # 10. Verify output
+      - name: Verify rendered video
+        run: |
+          if [ ! -s out/bagaimana-internet-bekerja.mp4 ]; then
+            echo "::error::File video tidak ditemukan atau kosong."
+            exit 1
+          fi
+
+          ls -lh out/bagaimana-internet-bekerja.mp4
+
+      # 11. Upload artifact
       - name: Upload Rendered MP4 & Voiceovers
         uses: actions/upload-artifact@v4
         with:
@@ -95,5 +140,6 @@ jobs:
           path: |
             out/bagaimana-internet-bekerja.mp4
             public/audio/voiceover/*.wav
+          if-no-files-found: error
           retention-days: 30
           
