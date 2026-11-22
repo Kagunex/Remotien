@@ -29,8 +29,12 @@ export const Scene02_GlobalNetwork: React.FC = () => {
   return (
     <AbsoluteFill>
       <SceneCanvas cameraFov={42}>
-        <StudioLighting floorY=-3.1 theme="globe" />
-        <CameraRig position={[camX, camY, camZ]} lookAt={[0, -0.05, 0]} />
+        <StudioLighting floorY={-3.1} theme="globe" />
+
+        <CameraRig
+          position={[camX, camY, camZ]}
+          lookAt={[0, -0.05, 0]}
+        />
 
         <FloatingObject amplitude={0.07} scale={globeScale}>
           <Globe nodeProgress={nodeProgress} />
@@ -44,6 +48,7 @@ export const Scene02_GlobalNetwork: React.FC = () => {
           progress={line1}
           color={PALETTE.yellow}
         />
+
         <NetworkLine
           start={[-1.35, -0.45, 0.85]}
           end={[1.38, -0.35, 0.82]}
@@ -51,6 +56,7 @@ export const Scene02_GlobalNetwork: React.FC = () => {
           progress={line2}
           color={PALETTE.lightBlue}
         />
+
         <NetworkLine
           start={[0.15, 1.55, 0.55]}
           end={[0.05, -1.05, 1.3]}
@@ -67,3 +73,4 @@ export const Scene02_GlobalNetwork: React.FC = () => {
     </AbsoluteFill>
   );
 };
+        
