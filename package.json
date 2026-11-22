@@ -1,0 +1,29 @@
+{
+  "name": "internet-motion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bagaimana Internet Bekerja? - 3D Educational Motion Graphic (90s, 8 Scenes) built with Remotion & React Three Fiber",
+  "scripts": {
+    "dev": "remotion studio",
+    "build": "remotion bundle",
+    "render": "remotion render src/index.ts InternetExplained out/bagaimana-internet-bekerja.mp4",
+    "tts:generate": "node scripts/generate-elevenlabs-vo.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^8.17.10",
+    "@remotion/cli": "^4.0.240",
+    "@remotion/media": "^4.0.240",
+    "@remotion/three": "^4.0.240",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.240",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.170.0",
+    "typescript": "^5.6.3"
+  }
+}
