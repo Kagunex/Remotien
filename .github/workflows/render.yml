@@ -1,51 +1,61 @@
-name: Render Bagaimana Internet Bekerja (3D Remotion + ElevenLabs)
+name: Render Internet Motion 9x16
 
 on:
   workflow_dispatch:
     inputs:
-      voice_id:
-        description: 'ElevenLabs Voice ID'
-        required: false
-        default: '21m00Tcm4TlvDq8ikWAM'
-        type: string
-      crf:
-        description: 'Kualitas H.264 CRF (18 = tinggi, 23 = standar)'
-        required: false
-        default: '18'
-        type: string
+      run_preflight:
+        description: "Validasi project dan tes WebGL 1 frame"
+        required: true
+        type: boolean
+        default: false
 
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'scripts/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/**'
+      confirm_full_render:
+        description: "Izinkan full render setelah preflight berhasil"
+        required: true
+        type: boolean
+        default: false
+
+      generate_voiceover:
+        description: "Generate ulang 8 voiceover (menggunakan kredit ElevenLabs)"
+        required: true
+        type: boolean
+        default: false
+
+      voice_id:
+        description: "ElevenLabs Voice ID"
+        required: false
+        type: string
+        default: "21m00Tcm4TlvDq8ikWAM"
+
+      crf:
+        description: "Kualitas H.264 CRF (18 tinggi, 23 standar)"
+        required: true
+        type: string
+        default: "18"
 
 permissions:
   contents: read
 
+concurrency:
+  group: internet-motion-render
+  cancel-in-progress: false
+
 jobs:
-  render-video:
+  render:
+    if: ${{ inputs.run_preflight == true || inputs.confirm_full_render == true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
 
     steps:
-      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js
-      - name: Setup Node.js 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
-      # 3. Install Linux dependencies + FFmpeg
-      - name: Install Linux Chromium, WebGL & FFmpeg dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -68,38 +78,32 @@ jobs:
             libgl1-mesa-dri \
             xvfb
 
-      # 4. Verify FFmpeg
-      - name: Verify FFmpeg
+      - name: Verify environment
         run: |
+          node --version
+          npm --version
           ffmpeg -version
+          ffprobe -version
 
-      # 5. Install project dependencies
       - name: Install project dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci --no-audit --no-fund
           else
-            npm install
+            npm install --no-audit --no-fund --package-lock=false
           fi
 
-      # 6. Verify Node.js and Remotion
-      - name: Verify Node.js and Remotion dependencies
-        run: |
-          echo "Checking Node.js..."
-          node --version
+      - name: Verify Remotion dependencies
+        run: npm ls remotion @remotion/cli --depth=0
 
-          echo "Checking npm..."
-          npm --version
+      - name: Validate assets
+        run: npm run validate:assets
 
-          echo "Checking Remotion packages..."
-          npm ls remotion @remotion/cli --depth=0
-
-      # 7. TypeScript check
-      - name: Typecheck TypeScript
+      - name: TypeScript check
         run: npm run typecheck
 
-      # 8. Validate ElevenLabs configuration
-      - name: Validate ElevenLabs API configuration
+      - name: Validate ElevenLabs configuration
+        if: ${{ inputs.generate_voiceover == true }}
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
@@ -108,8 +112,8 @@ jobs:
             exit 1
           fi
 
-      # 9. Generate Indonesian voiceover
       - name: Generate Indonesian Voiceover via ElevenLabs
+        if: ${{ inputs.generate_voiceover == true }}
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ELEVENLABS_VOICE_ID: ${{ inputs.voice_id || secrets.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM' }}
@@ -117,69 +121,157 @@ jobs:
         run: |
           node scripts/generate-elevenlabs-vo.mjs
 
-      # 10. Verify voiceover files
-      - name: Verify generated voiceovers
+      - name: Verify voiceover files
+        if: ${{ inputs.generate_voiceover == true || inputs.confirm_full_render == true }}
         run: |
           set -e
 
           EXPECTED=8
-          ACTUAL=$(find public/audio/voiceover -maxdepth 1 -type f -name 'scene-*.wav' | wc -l)
+          DIRECTORY="public/audio/voiceover"
 
-          echo "Expected voiceovers: $EXPECTED"
-          echo "Generated voiceovers: $ACTUAL"
-
-          if [ "$ACTUAL" -ne "$EXPECTED" ]; then
-            echo "::error::Jumlah file voiceover tidak sesuai. Ditemukan $ACTUAL dari $EXPECTED."
+          if [ ! -d "$DIRECTORY" ]; then
+            echo "::error::Folder voiceover tidak ditemukan: $DIRECTORY"
             exit 1
           fi
 
-          echo "Generated voiceover files:"
-          ls -lh public/audio/voiceover/
+          ACTUAL=$(find "$DIRECTORY" -maxdepth 1 -type f -name 'scene-*.wav' | wc -l)
 
-      # 11. Render video
-      - name: Render 90s 3D Motion Graphic Video
+          echo "Expected voiceovers: $EXPECTED"
+          echo "Found voiceovers: $ACTUAL"
+
+          if [ "$ACTUAL" -ne "$EXPECTED" ]; then
+            echo "::error::Voiceover harus berjumlah tepat 8 file WAV."
+            exit 1
+          fi
+
+          for i in $(seq -w 1 8); do
+            FILE="$DIRECTORY/scene-$i.wav"
+
+            if [ ! -s "$FILE" ]; then
+              echo "::error::Voiceover kosong atau tidak ditemukan: $FILE"
+              exit 1
+            fi
+          done
+
+          ls -lh "$DIRECTORY"
+
+      - name: Validate CRF
+        if: ${{ inputs.confirm_full_render == true }}
         env:
-          CRF: ${{ inputs.crf || '18' }}
+          CRF: ${{ inputs.crf }}
         run: |
+          if ! [[ "$CRF" =~ ^[0-9]+$ ]] || [ "$CRF" -lt 0 ] || [ "$CRF" -gt 51 ]; then
+            echo "::error::CRF harus berupa angka antara 0 sampai 51."
+            exit 1
+          fi
+
+      - name: WebGL preflight - 1 frame only
+        if: ${{ inputs.run_preflight == true || inputs.confirm_full_render == true }}
+        run: |
+          set -e
+          mkdir -p out
+
+          npx remotion still \
+            src/index.ts \
+            InternetExplained \
+            out/preflight-frame.jpeg \
+            --frame=0 \
+            --gl=swangle \
+            --concurrency=1
+
+          test -s out/preflight-frame.jpeg
+          echo "Preflight WebGL berhasil."
+
+      - name: Render full video
+        if: ${{ inputs.confirm_full_render == true }}
+        env:
+          CRF: ${{ inputs.crf }}
+        run: |
+          set -e
           mkdir -p out
 
           npx remotion render \
             src/index.ts \
             InternetExplained \
-            out/bagaimana-internet-bekerja.mp4 \
+            out/bagaimana-internet-bekerja-9x16.mp4 \
+            --gl=swangle \
+            --concurrency=2 \
             --codec=h264 \
             --pixel-format=yuv420p \
-            --crf="$CRF" \
-            --gl=swangle
+            --crf="$CRF"
 
-      # 12. Verify output
-      - name: Verify rendered video
+      - name: Verify video metadata
+        if: ${{ inputs.confirm_full_render == true }}
         run: |
           set -e
 
-          OUTPUT="out/bagaimana-internet-bekerja.mp4"
+          OUTPUT="out/bagaimana-internet-bekerja-9x16.mp4"
 
           if [ ! -s "$OUTPUT" ]; then
             echo "::error::File video tidak ditemukan atau kosong."
             exit 1
           fi
 
-          echo "Video successfully rendered:"
+          ffprobe -v error \
+            -select_streams v:0 \
+            -show_entries stream=codec_name,width,height,pix_fmt \
+            -show_entries format=duration \
+            -of json \
+            "$OUTPUT" > out/render-metadata.json
+
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          const metadata = JSON.parse(
+            fs.readFileSync('out/render-metadata.json', 'utf8')
+          );
+
+          const video = metadata.streams?.[0];
+          const duration = Number(metadata.format?.duration);
+
+          const checks = [
+            [video?.codec_name === 'h264', 'H.264 codec'],
+            [video?.width === 1080, 'Width 1080'],
+            [video?.height === 1920, 'Height 1920'],
+            [video?.pix_fmt === 'yuv420p', 'Pixel format yuv420p'],
+            [
+              Number.isFinite(duration) &&
+              duration >= 89.5 &&
+              duration <= 90.5,
+              'Duration approximately 90 seconds'
+            ],
+          ];
+
+          let failed = false;
+
+          for (const [passed, label] of checks) {
+            console.log(`${passed ? 'PASS' : 'FAIL'}: ${label}`);
+            if (!passed) failed = true;
+          }
+
+          if (failed) process.exit(1);
+          NODE
+
+          echo "Video berhasil diverifikasi."
           ls -lh "$OUTPUT"
 
-          ffprobe -v error \
-            -show_entries format=duration,size \
-            -of default=noprint_wrappers=1 \
-            "$OUTPUT"
-
-      # 13. Upload artifact
-      - name: Upload Rendered MP4 & Voiceovers
+      - name: Upload rendered video and voiceovers
+        if: ${{ inputs.confirm_full_render == true }}
         uses: actions/upload-artifact@v4
         with:
-          name: bagaimana-internet-bekerja-1080p
+          name: bagaimana-internet-bekerja-9x16
           path: |
-            out/bagaimana-internet-bekerja.mp4
+            out/bagaimana-internet-bekerja-9x16.mp4
             public/audio/voiceover/*.wav
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
+
+      - name: Upload preflight image
+        if: ${{ inputs.run_preflight == true && inputs.confirm_full_render != true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: internet-motion-preflight
+          path: out/preflight-frame.jpeg
+          if-no-files-found: error
+          retention-days: 3
           
