@@ -150,7 +150,7 @@ jobs:
             --codec=h264 \
             --pixel-format=yuv420p \
             --crf="$CRF" \
-            --gl=angle
+            --gl=swangle
 
       # 12. Verify output
       - name: Verify rendered video
